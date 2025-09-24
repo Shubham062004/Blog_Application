@@ -1,0 +1,36 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: blogdb
+      POSTGRES_USER: bloguser
+      POSTGRES_PASSWORD: blogpassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  web:
+    build: .
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DEBUG=True
+      - SECRET_KEY=django-insecure-temporary-key-for-development
+      - DATABASE_URL=postgresql://postgres:YOUR_SUPABASE_PASSWORD@db.pbltwarauxcbicrybccx.supabase.co:5432/postgres
+DATABASE_URL=postgresql://bloguser:blogpassword@db:5432/blogdb
+      - SECRET_KEY=your-secret-key-here
+      - CORS_ALLOW_ALL_ORIGINS=True
+    volumes:
+      - .:/app
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py loaddata fixtures/sample_data.json --ignore &&
+             python manage.py runserver 0.0.0.0:8000"
+
+volumes:
+  postgres_data:
