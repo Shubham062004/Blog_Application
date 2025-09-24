@@ -1,28 +1,18 @@
 from pathlib import Path
 from datetime import timedelta
 import os
-import dj_database_url
-from decouple import config
 
-DATABASES = {
-    'default': dj_database_url.config(default=config('DATABASE_URL'))
-}
+# Load environment variables
+from dotenv import load_dotenv
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
-
-# Load environment variables from .env file (with error handling)
-try:
-    from dotenv import load_dotenv
-    load_dotenv(BASE_DIR / '.env')
-except:
-    print("Warning: Could not load .env file, using environment variables or defaults")
+load_dotenv(BASE_DIR / '.env')
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', '2kz$*d+-6m+v^3b*3iqw)jo2@oacl772^^_=_m&r51b2=dn$ws')
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-2kz$*d+-6m+v^3b*3iqw)jo2@oacl772^^_=_m&r51b2=dn$ws')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = ['*']
 
@@ -41,6 +31,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -70,26 +61,25 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'blog_api.wsgi.application'
 
-# ✅ DATABASE - FORCE SUPABASE CONNECTION
-DATABASE_URL = os.getenv('DATABASE_URL') or 'postgresql://postgres.pbltwarauxcbicrybccx:blogapp@123@db.pbltwarauxcbicrybccx.supabase.co:5432/postgres'
+# Database Configuration - SQLite for local, PostgreSQL for production
+DATABASE_URL = os.getenv('DATABASE_URL')
 
-if DATABASE_URL:
+if DATABASE_URL and 'postgresql' in DATABASE_URL:
+    # Production - Use PostgreSQL
     import dj_database_url
     DATABASES = {
         'default': dj_database_url.parse(DATABASE_URL)
     }
+    print("✅ Using PostgreSQL (Production)")
 else:
-    # Fallback (should never be used)
+    # Local Development - Use SQLite
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-
-# Print for debugging
-print(f"DATABASE_URL: {DATABASE_URL}")
-print(f"Database Engine: {DATABASES['default']['ENGINE']}")
+    print("✅ Using SQLite (Local Development)")
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -108,6 +98,9 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# Static files storage for production
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
@@ -129,7 +122,7 @@ SIMPLE_JWT = {
 }
 
 # CORS SETTINGS
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'True') == 'True'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
@@ -147,3 +140,23 @@ CSRF_TRUSTED_ORIGINS = [
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
 ]
+
+# Production settings for Render
+if 'RENDER' in os.environ:
+    DEBUG = False
+    ALLOWED_HOSTS = ['*']
+    
+    # Security settings for production
+    SECURE_SSL_REDIRECT = False  # Render handles SSL
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    
+    # Static files
+    STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+    
+    # CORS for production
+    CORS_ALLOW_ALL_ORIGINS = False
+    CORS_ALLOWED_ORIGINS = [
+        "https://your-frontend.netlify.app",  # Update later
+        "http://localhost:3000",
+        "http://localhost:5173",
+    ]
